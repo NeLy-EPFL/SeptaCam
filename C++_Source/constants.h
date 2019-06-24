@@ -10,7 +10,9 @@
 #define OTF_QUEUE_SIZE 	   1024
 
 #define INSTALL_DIR     "/NIR_Imaging/"     // The installation directory in the runtime environment 
-#define OUTPUT_DIR	    "/data/" 		    // The output directory in the runtime environment
+#define OUTPUT_DIR	    "/mnt/data/" 		    // The output directory in the runtime environment
+#define WINDOWS_SHARE   NULL           // If the network connection is not fast enough for the camera set up and the two photon images to save in the same location this folder is user to create the same folder structure to save the two photon output in the same location. Ignored when NULL.
+
 
 #define SEQ_FILE        "/NIR_Imaging/Code_Python/stimulation/seqFile.txt"      // The directory for the stimulation sequence file
 
