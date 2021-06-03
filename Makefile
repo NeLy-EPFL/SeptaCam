@@ -25,7 +25,7 @@ INC_BASLER    := $(shell $(PYLON_ROOT)/bin/pylon-config --cflags)
 
 LIBS           = -lpthread -lGLU -lGL -lpthread 
 LIBS_GUI       = -ltcl8.6 -ltk8.6
-LIBS_CV        = -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_imgcodecs #-lopencv_world 
+LIBS_CV        = -lopencv_world -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 #-lopencv_ml -lopencv_objdetect -lopencv_viz -lopencv_dnn          \
 #			     -lopencv_videostab -lopencv_photo -lopencv_superres -lopencv_shape\
@@ -46,13 +46,13 @@ GUI_BASLER_m: ${ODIR}gui.o ${ODIR}cpptk.o ${ODIR}cpptkbase.o ${ODIR}analyzeImgs.
 	rm -f ${ODIR}NIR_Imaging_BASLER.o 
 	${CXX} ${INC_BASLER} ${INC_CV} -D MULTITHREAD=1 -c C++_Source/NIR_Imaging_BASLER.cpp \
 			-o ${ODIR}NIR_Imaging_BASLER.o -std=c++11
-	${CXX} ${INC_CV} ${ODIR}NIR_Imaging_BASLER.o $? -o $@ \
+	${CXX} ${ODIR}NIR_Imaging_BASLER.o $? -o $@ \
 			${LIBDIRS_GUI} ${LIBDIRS_BASLER} ${LIBDIRS_CV} ${LIBS_GUI} \
 			${LIBS_BASLER} ${LIBS} ${LIBS_CV} ${OPTIONS}
 #`pkg-config opencv --cflags --libs` -std=c++11 
 
 ${ODIR}gui.o: C++_Source/gui/gui.cc 
-	${CXX} ${INC_GUI} ${INC_CV} -c  $? -o $@ ${OPTIONS} -std=c++11
+	${CXX} ${INC_GUI} -c  $? -o $@ ${OPTIONS} -std=c++11
 
 ${ODIR}cpptk.o: C++_Source/gui/cpptk.cc  
 	${CXX} ${INC_GUI} -c  $? -o $@ ${OPTIONS}
@@ -61,7 +61,7 @@ ${ODIR}cpptkbase.o: C++_Source/gui/base/cpptkbase.cc
 	${CXX} ${INC_GUI} -c $? -o $@ ${OPTIONS}
 
 ${ODIR}analyzeImgs.o: C++_Source/analyzeImgs.cpp
-	${CXX} ${INC_CV} -c $? -o $@ ${OPTIONS}
+	${CXX} -c $? -o $@ ${OPTIONS}
 
 # Cleanup intermediate objects
 .PHONY: clean_obj
