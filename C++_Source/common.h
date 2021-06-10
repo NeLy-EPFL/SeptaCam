@@ -1,0 +1,1 @@
+extern bool cameraToRecord = {false, false, false, false, false, false, false};

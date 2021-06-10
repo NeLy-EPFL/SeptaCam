@@ -33,6 +33,7 @@
 #include "constants.h"
 #include "helpers.h"
 #include "analyzeImgs.h"
+#include "common.h"
 
 using namespace std;
 using namespace Pylon;

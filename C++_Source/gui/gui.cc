@@ -12,6 +12,7 @@
 #include "cpptk.h"
 #include "../constants.h"
 #include "../NIR_Imaging.h"
+#include "../common.h"
 
 using namespace Tk;
 
