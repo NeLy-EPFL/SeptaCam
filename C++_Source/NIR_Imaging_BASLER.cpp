@@ -1,4 +1,3 @@
-
 // Pylon Imports
 #include <pylon/PylonIncludes.h>
 #include <pylon/usb/BaslerUsbInstantCamera.h>
@@ -520,9 +519,260 @@ void cameras_stop()
     cout << "Cameras Stopped" << endl;
 }
 
-void cameras_grab(std::string path, int obs_frames, int rec_frames, bool motion_act,
-                  bool direct_save, bool trigger, bool strobe, int liveStream[],
-                  int enCam[], int streamCam)
+void cameras_grab_for_preview(int liveStream[], int enCam[], int streamCam)
+{
+    captStreamCam = streamCam;
+    for (int i = 0; i < 7, i++)
+    {
+        saveDataFromCam = enCam[i];
+    }
+
+    for (int i = 0; i < num_devices; i++)
+    {
+        CGrabResultPtr ptr_grab_result = CGrabResultPtr();
+
+        if (cameras[i].RetrieveResult(5000, ptr_grab_result,
+                                        TimeoutHandling_ThrowException)
+            && ptr_grab_result->GrabSucceeded())
+        {
+            void *data = ptr_grab_result->GetBuffer();
+
+            memcpy(display_data[i], data, height[i] * width[i]);
+            const cv::Mat M(height[i], width[i], CV_8U, display_data[i]);
+
+            ostringstream int_string;
+            int_string << "Camera_" << i;
+            if (liveStream[i])
+            {
+                if (!liveWindows[i])
+                {
+                    liveWindows[i] = true;
+                }
+                cv::imshow(int_string.str(), M);
+                cv::resizeWindow(int_string.str(),
+                                    (width[i] * WINDOW_HEIGHT) / height[i],
+                                    WINDOW_HEIGHT);
+                cv::waitKey(1);
+            }
+            else
+            {
+                if (liveWindows[i])
+                {
+                    liveWindows[i] = false;
+                    cv::destroyWindow(int_string.str());
+                }
+            }
+        }
+        else
+        {
+            cerr << "Failure on Grab" << ptr_grab_result->GrabSucceeded() << endl;
+            return;
+        }
+    }
+}
+
+string get_time_string()
+{
+    time_t raw_time;
+    struct tm *time_info;
+    char buffer[80];
+
+    time(&raw_time);
+    time_info = localtime(&raw_time);
+
+    strftime(buffer, sizeof(buffer), "%d-%m-%Y---%I-%M-%S", time_info);
+    string time_string(buffer);
+
+    return time_string;
+}
+
+recstat_t start_cameras_grab(std::string path, int obs_frames, int rec_frames, bool motion_act,
+                             bool direct_save, bool trigger, bool strobe, int liveStream[],
+                             int enCam[], int streamCam)
+{
+    // Setup
+    string start_time = get_time_string();
+    captStreamCam = streamCam;
+    for (int i = 0; i < 7, i++)
+    {
+        saveDataFromCam = enCam[i];
+    }
+
+    // Initialize event handlers and files
+    FILE **arhFile = (FILE **) malloc(sizeof(FILE *) * num_devices);
+    CustomImageEventHandler *grabHandlers =
+        (CustomImageEventHandler *) malloc(sizeof(CustomImageEventHandler) * num_devices);
+    for (int i = 0; i < num_devices; i ++)
+    {
+        if (saveDataFromCam[i])
+        {
+            if (!direct_save) {
+                stringstream sstream;
+                string tempFilename;
+                sstream << path << "/camera_" << i << ".tmp";
+                sstream >> tempFilename;
+                arhFile[i] = fopen(tempFilename.c_str(), "wb");
+                if (arhFile[i] == NULL)
+                {
+                    cout << "Failure Opening: " << tempFilename.c_str() << endl;
+                }
+            }
+            
+            new (&(grabHandlers[i])) CustomImageEventHandler(i, rec_frames,
+                                                             height[i], width[i],
+                                                             motion_act, direct_save,
+                                                             arhFile[i], path);
+            cameras[i].RegisterImageEventHandler(&(grabHandlers[i]),
+                                                 RegistrationMode_Append,
+                                                 Cleanup_None);
+            
+        }
+
+        setPerformanceMode(true);
+        setMetadata(true);
+        setSynchronization(trigger, strobe);
+        cameras_start(obs_frames);
+    }
+
+    recstat_t status;
+    status.start_time = start_time;
+    status.grabHandlers = grabHandlers;
+    status.arhFile = arhFile;
+    status.direct_save = direct_save;
+    status.target_path = path;
+    return status;
+}
+
+/**
+ * This function is called to wrap up the camera grab process. It does NOT
+ * terminate camera grab if it is still in progress (in fact it will cause
+ * an assertion failure). It should only be called if recording has completed,
+ * either normally or by early termination.
+ * 
+ * @param status as returned by ``start_cameras_grab``
+ */
+void clean_up_camera_grab(recstat_t status)
+{
+    // Waiting for .IsGrabbing() to change to false for all cameras should not be necessary;
+    // pylon API reference indicates that .StopGrabbing() is synchronous.
+    for (int i = 0; i < num_devices; i++)
+    {
+        assert(!(cameras[i].isGrabbing()));
+    }
+
+    // Get stats and deregister handlers
+    float time_acc = 0;
+    int missed_frames_acc = 0;
+    for (int i = 0; i < num_devices; i++)
+    {
+        if (saveDataFromCam[i])
+        {
+            time_acc += status.grabHandlers[i].getIntervalAcc();
+            missed_frames_acc += status.grabHandlers[i].getMissedFrames();
+            cameras[i].DeregisterImageEventHandler(&(status.grabHandlers[i]));
+        }
+    }
+    cout << "Total interval: " << time_acc << endl;
+    cout << "We have missed a total of " << missed_frames_acc << " frames" << endl;
+
+    // Close files as needed
+    if (!status.direct_save)
+    {
+        for (int i = 1; i < num_devices; i++)
+        {
+            if (saveDataFromCam[i]) {
+                fclose(status.arhFile[i]);
+            }
+        }
+    }
+
+    // Change camera states
+    setPerformanceMode(false);
+    setMetadata(false);
+    setSynchronization(false, false);
+    cameras_start();
+
+    // Write metadata to JSON
+    Json::Value capture_metadata;
+    Json::StyledWriter styled_writer;
+    for (int i = 0; i < num_devices; i++)
+    {
+        if (saveDataFromCam[i])
+        {
+            capture_metadata["Number of Frames"][to_string(i)]
+                = status.grabHandlers[i].recorded_frames;
+            capture_metadata["ROI"]["Height"][to_string(i)] = height[i];
+            capture_metadata["ROI"]["Width"][to_string(i)] = width[i];
+            capture_metadata["ROI"]["OffX"][to_string(i)] = offX[i];
+            capture_metadata["ROI"]["OffY"][to_string(i)] = offY[i];
+
+            for (int j = 0; j < status.grabHandlers[i].recorded_frames; j++)
+            {
+                capture_metadata["TimeStamps"][to_string(i)][to_string(j)]
+                    = status.grabHandlers[i].getTimestamp(j);
+                capture_metadata["Frame Counts"][to_string(i)][to_string(j)]
+                    = status.grabHandlers[i].getFrameNumber(j);
+            }
+        }
+    }
+    capture_metadata["Number of Cameras"] = num_devices;
+    capture_metadata["FPS"] = fps;
+    capture_metadata["Capture Start Time and Date"] = status.start_time.c_str();
+
+    stringstream sstream;
+    string meta_filename;
+    ofstream meta_file;
+    sstream << status.target_path << "/capture_metadata.json";
+    sstream >> meta_filename;
+    meta_file.open(meta_filename.c_str());
+    meta_file << styled_writer.write(capture_metadata);
+    meta_file.close();
+
+    // Clean up
+    free(status.arhFile);
+    free(status.grabHandlers);
+}
+
+/**
+ * This function is the entry point to terminate camera grabbing prematurely.
+ * 
+ * @param status as returned by ``start_cameras_grab``
+ */
+void terminate_camera_grab(recstat_t status)
+{
+    for (int i = 0; i < num_devices; i ++)
+    {
+        cameras[i].StopGrabbing();
+    }
+    clean_up_camera_grab(status);
+    toTerminateRecording = false;
+}
+
+void wait_for_grab_to_finish(float expected_time_sec)
+{
+    usleep(expected_time_sec * 1e6);
+    bool all_done;
+    while (true)
+    {
+        all_done = true;
+        for (int i = 0; i < 7; i++)
+        {
+            if (cameras[i].IsGrabbing()) {
+                all_done = false;
+                break;
+            }
+        }
+        if (all_done) {
+            break;
+        }
+        usleep(1e5);
+    }
+}
+
+
+void _legacy_cameras_grab(std::string path, int obs_frames, int rec_frames, bool motion_act,
+                          bool direct_save, bool trigger, bool strobe, int liveStream[],
+                          int enCam[], int streamCam)
 {
     try
     {
@@ -546,38 +796,6 @@ void cameras_grab(std::string path, int obs_frames, int rec_frames, bool motion_
         // We want to save a determined number of frames
         if (obs_frames != 0)
         {
-            // // Added in GUI.CC
-            // struct stat sb;
-            //     if (!(stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)))
-            //     {
-            //         const int dir_err = mkdir(path.c_str(),
-            //                                   S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            //         if (-1 == dir_err)
-            //         {
-            //             cout << "Failure Creating Direcory: "<< path.c_str() << endl;
-            //             return;
-            //         }
-            //     }
-            
-            //     else
-            //     {
-              //         cout << path.c_str() << " Already Exists" << endl;
-            //         path.insert(path.length(),"---");
-            //         path.insert(path.length(),time_string);
-    
-            //         cout << "Creating "<<path.c_str() << " instead" << endl;
-    
-            //         const int dir_err = mkdir(path.c_str(),
-            //                                   S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            //         if (-1 == dir_err)
-            //         {
-            //                 cout << "Failure Creating Direcory: "<< path.c_str() << endl;
-            //                 return;
-            //         }
-            //     }
-    
-            // cameras_stop();
-
             FILE **arhFile = (FILE **)malloc(sizeof(FILE *) * num_devices);
             CustomImageEventHandler *grabHandlers = (CustomImageEventHandler *)
                 malloc(sizeof(CustomImageEventHandler) * num_devices);

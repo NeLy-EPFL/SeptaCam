@@ -1,1 +1,1 @@
-extern bool cameraToRecord = {false, false, false, false, false, false, false};
+extern bool toTerminateRecording;

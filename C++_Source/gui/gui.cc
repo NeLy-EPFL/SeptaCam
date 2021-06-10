@@ -338,8 +338,15 @@ void start_capture()
         cameras_setFPS(fps, trigger);
         // cameras_start();
 
-        cameras_grab(dirCreated, obs_frames, rec_frames, motion_activation, seperate_images,
-                     trigger, strobe, liveStream, saveCams, streamCam);
+        // cameras_grab(dirCreated, obs_frames, rec_frames, motion_activation, seperate_images,
+        //              trigger, strobe, liveStream, saveCams, streamCam);
+        recstat_t recording_status = start_cameras_grab(
+            dirCreated, obs_frames, rec_frames, motion_activation, seperate_images,
+            trigger, strobe, liveStream, saveCams, streamCam
+        );
+        wait_for_grab_to_finish(rec_time_sec);
+        clean_up_camera_grab(recording_status);
+
         cameras_stop();
         cameras_setFPS(30, false);
         cameras_start();
