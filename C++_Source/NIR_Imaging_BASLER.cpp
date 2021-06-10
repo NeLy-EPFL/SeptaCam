@@ -158,13 +158,13 @@ public:
         {
             const cv::Mat M(img_height, img_width, CV_8U, buffer);
             bool fly_moving = aI.isMoving(M, camera_number);
-            bool fly_moving = capture_flag; 
-                if (!fly_moving)
-                {
-                    fly_moving = 0.25 > (static_cast <float> (rand())
-                                         / static_cast <float> (RAND_MAX));
-                    cout << fly_moving << endl;
-                }
+            // bool fly_moving = capture_flag; 
+            // if (!fly_moving)
+            // {
+            //     fly_moving = 0.25 > (static_cast <float> (rand())
+            //                          / static_cast <float> (RAND_MAX));
+            //     cout << fly_moving << endl;
+            // }
 
             if (fly_moving)
             {
