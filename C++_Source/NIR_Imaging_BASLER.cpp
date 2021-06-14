@@ -63,6 +63,8 @@ static int saveDataFromCam[7];
 static int liveWindows[7] = {true, true, true, true, true, true, true};
 static int captStreamCam;
 
+bool toTerminateRecording = false;
+
 class CustomImageEventHandler : public CImageEventHandler
 {
 private:
@@ -522,9 +524,9 @@ void cameras_stop()
 void cameras_grab_for_preview(int liveStream[], int enCam[], int streamCam)
 {
     captStreamCam = streamCam;
-    for (int i = 0; i < 7, i++)
+    for (int i = 0; i < 7; i++)
     {
-        saveDataFromCam = enCam[i];
+        saveDataFromCam[i] = enCam[i];
     }
 
     for (int i = 0; i < num_devices; i++)
@@ -593,9 +595,9 @@ recstat_t start_cameras_grab(std::string path, int obs_frames, int rec_frames, b
     // Setup
     string start_time = get_time_string();
     captStreamCam = streamCam;
-    for (int i = 0; i < 7, i++)
+    for (int i = 0; i < 7; i++)
     {
-        saveDataFromCam = enCam[i];
+        saveDataFromCam[i] = enCam[i];
     }
 
     // Initialize event handlers and files
@@ -657,7 +659,7 @@ void clean_up_camera_grab(recstat_t status)
     // pylon API reference indicates that .StopGrabbing() is synchronous.
     for (int i = 0; i < num_devices; i++)
     {
-        assert(!(cameras[i].isGrabbing()));
+        assert(!(cameras[i].IsGrabbing()));
     }
 
     // Get stats and deregister handlers
@@ -755,7 +757,7 @@ void wait_for_grab_to_finish(float expected_time_sec)
     while (true)
     {
         all_done = true;
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < num_devices; i++)
         {
             if (cameras[i].IsGrabbing()) {
                 all_done = false;

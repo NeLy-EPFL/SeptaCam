@@ -3,11 +3,11 @@
 
 class CustomImageEventHandler;
 struct recstat_t {
-    string start_time;
+    std::string start_time;
     CustomImageEventHandler *grabHandlers;
     FILE **arhFile;
     bool direct_save;
-    string target_path;
+    std::string target_path;
 };
 
 int cameras_connect();

@@ -50,8 +50,9 @@ void updateFrameView()
 {
     if (!captureRunning)
     {
-        cameras_grab("Not Applicable", 0, 0, false, false, false, false,
-                     liveStream, saveCams, streamCam);
+        // cameras_grab("Not Applicable", 0, 0, false, false, false, false,
+        //              liveStream, saveCams, streamCam);
+        cameras_grab_for_preview(liveStream, saveCams, streamCam);
     }
     after(50, updateFrameView);
     return;
