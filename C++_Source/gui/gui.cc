@@ -12,7 +12,8 @@
 #include "cpptk.h"
 #include "../constants.h"
 #include "../NIR_Imaging.h"
-#include "../common.h"
+
+#define REFRESH_INTERVAL_MILLISEC 100
 
 using namespace Tk;
 
@@ -255,6 +256,7 @@ void toggle_view_to_idle()
 
 void increment_trial_number()
 {
+    std::string trial(".entry_trial" << get());
     int valTrial = stoi(trial);
     valTrial += 1;
     std::ostringstream incTrial;
@@ -284,7 +286,7 @@ void check_recording_status()
     }
     else
     {
-        after(1e2, is_all_cameras_done);
+        after(REFRESH_INTERVAL_MILLISEC, check_recording_status);
     }
 }
 
@@ -392,7 +394,7 @@ void start_capture()
             trigger, strobe, liveStream, saveCams, streamCam
         );
         toggle_view_to_recording();
-        after(1e2, check_recording_status);
+        after(REFRESH_INTERVAL_MILLISEC, check_recording_status);
     }
     else
     {
