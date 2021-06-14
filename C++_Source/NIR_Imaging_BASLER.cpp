@@ -63,8 +63,6 @@ static int saveDataFromCam[7];
 static int liveWindows[7] = {true, true, true, true, true, true, true};
 static int captStreamCam;
 
-bool toTerminateRecording = false;
-
 class CustomImageEventHandler : public CImageEventHandler
 {
 private:
@@ -740,33 +738,33 @@ void clean_up_camera_grab(recstat_t status)
  * 
  * @param status as returned by ``start_cameras_grab``
  */
-void terminate_camera_grab(recstat_t status)
+void terminate_camera_grab()
 {
     for (int i = 0; i < num_devices; i ++)
     {
         cameras[i].StopGrabbing();
     }
-    clean_up_camera_grab(status);
-    toTerminateRecording = false;
 }
 
-void wait_for_grab_to_finish(float expected_time_sec)
+/**
+ * Are all cameras done grabbing?
+ */
+bool is_all_cameras_done()
+{
+    for (int i = 0; i < num_devices; i++)
+    {
+        if (cameras[i].IsGrabbing()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void wait_for_grab_to_finish(float expected_time_sec = 0)
 {
     usleep(expected_time_sec * 1e6);
-    bool all_done;
-    while (true)
+    while (!is_all_cameras_done())
     {
-        all_done = true;
-        for (int i = 0; i < num_devices; i++)
-        {
-            if (cameras[i].IsGrabbing()) {
-                all_done = false;
-                break;
-            }
-        }
-        if (all_done) {
-            break;
-        }
         usleep(1e5);
     }
 }

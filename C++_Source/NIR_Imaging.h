@@ -23,14 +23,13 @@ void cameras_setFPS(float fps, bool for_trigger);
 void cameras_start(int numFrames = 0);
 void cameras_stop();
 
-// void cameras_grab(std::string path, int obs_frames, int rec_frames, bool motion_act,
-//                   bool directSave, bool trigger, bool strobe, int liveStream[],
-//                   int enCams[], int streamCam);
 void cameras_grab_for_preview(int liveStream[], int enCam[], int streamCam);
 recstat_t start_cameras_grab(std::string path, int obs_frames, int rec_frames, bool motion_act,
                              bool direct_save, bool trigger, bool strobe, int liveStream[],
                              int enCam[], int streamCam);
 void clean_up_camera_grab(recstat_t status);
-void wait_for_grab_to_finish(float expected_time_sec);
+bool is_all_cameras_done();
+void wait_for_grab_to_finish(float expected_time_sec = 0);
+void terminate_camera_grab();
 
 void cameras_save(std::string path);

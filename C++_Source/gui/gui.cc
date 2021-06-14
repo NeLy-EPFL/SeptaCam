@@ -36,6 +36,7 @@ int videofrom[8] = {false, false, false, false, false, false, false, true};
 int streamCam = 6;
 std::string imgDirectory;
 std::ostringstream sequence, stimTime;
+recstat_t recording_status;
 
 static unsigned int numCameras;
 int obs_scale = 1;
@@ -240,6 +241,53 @@ std::string creatingDirectory(std::string output_dir, std::string experimenter,
     // }
 }
 
+void toggle_view_to_recording()
+{
+    ".button_start_capture" << configure() -state("disabled");
+    ".button_stop_capture" << configure() -state("normal");
+}
+
+void toggle_view_to_idle()
+{
+    ".button_start_capture" << configure() -state("normal");
+    ".button_stop_capture" << configure() -state("disabled");
+}
+
+void increment_trial_number()
+{
+    int valTrial = stoi(trial);
+    valTrial += 1;
+    std::ostringstream incTrial;
+    if (valTrial < 10)
+    {
+        incTrial << "00" << valTrial;
+    }
+    else
+    {
+        incTrial << "0" << valTrial;
+    }
+    trialStr = incTrial.str();
+}
+
+void check_recording_status()
+{
+    if (is_all_cameras_done())
+    {
+        clean_up_camera_grab(recording_status);
+        cameras_stop();
+        cameras_setFPS(30, false);
+        cameras_start();
+        captureRunning = false;
+        alert_error("Capture Completed");
+        increment_trial_number();
+        toggle_view_to_idle();
+    }
+    else
+    {
+        after(1e2, is_all_cameras_done);
+    }
+}
+
 void start_capture()
 {
     int fd, fd_stim;
@@ -339,42 +387,17 @@ void start_capture()
         cameras_setFPS(fps, trigger);
         // cameras_start();
 
-        // cameras_grab(dirCreated, obs_frames, rec_frames, motion_activation, seperate_images,
-        //              trigger, strobe, liveStream, saveCams, streamCam);
-        recstat_t recording_status = start_cameras_grab(
+        recording_status = start_cameras_grab(
             dirCreated, obs_frames, rec_frames, motion_activation, seperate_images,
             trigger, strobe, liveStream, saveCams, streamCam
         );
-        wait_for_grab_to_finish(rec_time_sec);
-        clean_up_camera_grab(recording_status);
-
-        cameras_stop();
-        cameras_setFPS(30, false);
-        cameras_start();
-
-        // Capture completed
-        alert_error("Capture Completed");
+        toggle_view_to_recording();
+        after(1e2, check_recording_status);
     }
     else
     {
         alert_error("Recording only optical flow data");
     }
-
-    int valTrial = stoi(trial);
-    valTrial += 1;
-    std::ostringstream incTrial;
-    if (valTrial < 10)
-    {
-        incTrial << "00" << valTrial;
-    }
-    else
-    {
-        incTrial << "0" << valTrial;
-    }
-    trialStr = incTrial.str();
-
-    captureRunning = false;
-    return;
 }
 
 void camsStatus()
@@ -1130,7 +1153,11 @@ void setup()
 
     button(".button_start_capture") - text("Start Capture") - command(start_capture);
     grid(configure, ".button_start_capture") - in(".folderdata") - columnspan(2)
-                                             - column(2) - row(2);
+                                             - column(1) - row(2);
+    button(".button_stop_capture") - text("Stop Capture") - command(terminate_camera_grab)
+                                   - state("disabled");
+    grid(configure, ".button_stop_capture") - in(".folderdata") - columnspan(2)
+                                            - column(3) - row(2);
 
     pack(".folderdata");
 
