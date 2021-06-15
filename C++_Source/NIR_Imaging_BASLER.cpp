@@ -626,12 +626,12 @@ recstat_t start_cameras_grab(std::string path, int obs_frames, int rec_frames, b
                                                  Cleanup_None);
             
         }
-
-        setPerformanceMode(true);
-        setMetadata(true);
-        setSynchronization(trigger, strobe);
-        cameras_start(obs_frames);
     }
+
+    setPerformanceMode(true);
+    setMetadata(true);
+    setSynchronization(trigger, strobe);
+    cameras_start(obs_frames);
 
     recstat_t status;
     status.start_time = start_time;
