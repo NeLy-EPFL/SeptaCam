@@ -246,12 +246,14 @@ void toggle_view_to_recording()
 {
     ".button_start_capture" << configure() -state("disabled");
     ".button_stop_capture" << configure() -state("normal");
+    ".progress_label" << configure() -text("Starting...");
 }
 
 void toggle_view_to_idle()
 {
     ".button_start_capture" << configure() -state("normal");
     ".button_stop_capture" << configure() -state("disabled");
+    ".progress_label" << configure() -text("Idle");
 }
 
 void increment_trial_number()
@@ -280,12 +282,26 @@ void check_recording_status()
         cameras_setFPS(30, false);
         cameras_start();
         captureRunning = false;
+        toggle_view_to_idle();
         alert_error("Capture Completed");
         increment_trial_number();
-        toggle_view_to_idle();
     }
     else
     {
+        progress_t progress = get_recording_progress(recording_status);
+        float fps = progress.fps;
+        int num_frames_recorded = progress.num_frames_recorded;
+        int num_frames_total = progress.num_frames_total;
+        if (num_frames_recorded)
+        {
+            int percent_done = 100 * num_frames_recorded / num_frames_total;
+            int time_done_secs = num_frames_recorded / fps;
+            int total_time_secs = num_frames_total / fps;
+            std::ostringstream status_str;
+            status_str << time_done_secs << "/" << total_time_secs << " secs ("
+                    << percent_done << "% done)";
+            ".progress_label" << configure() -text(status_str.str());
+        }
         after(REFRESH_INTERVAL_MILLISEC, check_recording_status);
     }
 }
@@ -1153,13 +1169,17 @@ void setup()
     //label(".label_empty4") -text("        ");
     //grid(configure,".label_empty4") -in(".folderdata") -column(2) -row(1);
 
+    label(".progress_label") - text("Idle") - justify(center);
+    grid(configure, ".progress_label") - in(".folderdata") - column(1) - row(2)
+                                       - columnspan(4);
+
     button(".button_start_capture") - text("Start Capture") - command(start_capture);
     grid(configure, ".button_start_capture") - in(".folderdata") - columnspan(2)
-                                             - column(1) - row(2);
+                                             - column(1) - row(3);
     button(".button_stop_capture") - text("Stop Capture") - command(terminate_camera_grab)
                                    - state("disabled");
     grid(configure, ".button_stop_capture") - in(".folderdata") - columnspan(2)
-                                            - column(3) - row(2);
+                                            - column(3) - row(3);
 
     pack(".folderdata");
 

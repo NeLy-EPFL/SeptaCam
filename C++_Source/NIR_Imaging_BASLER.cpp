@@ -129,6 +129,11 @@ public:
         return timestamp_log[i];
     }
 
+    int getMaxRecFrames()
+    {
+        return max_rec_frames;
+    }
+
     virtual void OnImageGrabbed(CInstantCamera &camera, const CGrabResultPtr &ptr_grab_result)
     {
         // Save to Disk as quickly as possible !
@@ -640,6 +645,15 @@ recstat_t start_cameras_grab(std::string path, int obs_frames, int rec_frames, b
     status.direct_save = direct_save;
     status.target_path = path;
     return status;
+}
+
+progress_t get_recording_progress(recstat_t status)
+{
+    progress_t progress;
+    progress.fps = fps;
+    progress.num_frames_total = status.grabHandlers[0].getMaxRecFrames();
+    progress.num_frames_recorded = status.grabHandlers[0].recorded_frames;
+    return progress;
 }
 
 /**

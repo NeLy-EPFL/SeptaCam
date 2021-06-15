@@ -10,6 +10,12 @@ struct recstat_t {
     std::string target_path;
 };
 
+struct progress_t {
+    float fps;
+    int num_frames_total;
+    int num_frames_recorded;
+};
+
 int cameras_connect();
 void cameras_disconnect();
 std::array<long int, 4> cameras_getROI(int index);
@@ -30,5 +36,6 @@ recstat_t start_cameras_grab(std::string path, int obs_frames, int rec_frames, b
 void clean_up_camera_grab(recstat_t status);
 bool is_all_cameras_done();
 void terminate_camera_grab();
+progress_t get_recording_progress(recstat_t status);
 
 void cameras_save(std::string path);
