@@ -5,6 +5,7 @@ from pathlib import Path
 from threading import Lock, Thread
 from tempfile import mkstemp
 from subprocess import run
+import threading
 
 def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
     """Run MP4 compression by calling FFmpeg.
@@ -55,14 +56,17 @@ def _guarded_print(lock, *args, **kwargs):
 
 def _thread_worker(thread_id, cmpr):
     while True:
-        cam, args = cmpr.job_queue.get()
+        task_spec = cmpr.job_queue.get()
+        if task_spec is None:
+            break
+        cam, args = task_spec
         _guarded_print(
             cmpr.log_lock,
             f'>>> Thread {thread_id} working on {str(args[1].name)}'
         )
-        cmpr.main_lock.acquire()
+        cmpr.status_lock.acquire()
         cmpr.busy_workers += 1
-        cmpr.main_lock.release()
+        cmpr.status_lock.release()
 
         # Actual invocation
         start_time = time()
@@ -70,21 +74,25 @@ def _thread_worker(thread_id, cmpr):
         end_time = time()
 
         # Increment part count
-        cmpr.main_lock.acquire()
+        cmpr.status_lock.acquire()
         cmpr.parts_done[cam] += 1
         cmpr.busy_workers -= 1
         cmpr.last_job_walltime = end_time - start_time
-        cmpr.main_lock.release()
+        cmpr.status_lock.release()
 
         cmpr.job_queue.task_done()
 
 def _scan_files(cmpr):
     while True:
-        cmpr.scan_lock.acquire()
+        cmpr.status_lock.acquire()
+        all_done = cmpr.all_done
+        cmpr.status_lock.release()
+        if all_done:
+            break
 
+        cmpr.scan_lock.acquire()
         # Detect newly available files
         cmpr.add_new_files_to_pending_sets()
-
         # Move pending frames
         for cam in range(cmpr.num_cams):
             while len(cmpr.pending_frames[cam]) >= cmpr.frames_per_video:
@@ -92,7 +100,6 @@ def _scan_files(cmpr):
                 cmpr.pending_frames[cam] = \
                     cmpr.pending_frames[cam][cmpr.frames_per_video:]
                 cmpr.add_chunk_to_queue(cam, chunk)
-        
         cmpr.scan_lock.release()
         sleep(cmpr.refresh_interval_secs)
 
@@ -119,9 +126,10 @@ class Mp4Compressor:
         self.latest_frame_per_cam = {cam: -1 for cam in range(num_cams)}
         self.busy_workers = 0
         self.last_job_walltime = None
+        self.all_done = False
 
         # Initialize parallelization setup
-        self.main_lock = Lock()
+        self.status_lock = Lock()
         self.log_lock = Lock()
         self.scan_lock = Lock()
         self.worker_threads = [
@@ -151,6 +159,14 @@ class Mp4Compressor:
 
         # Now we just wait for everything to finish. This is blocking.
         self.job_queue.join()
+        self.status_lock.acquire()
+        self.all_done = True
+        self.status_lock.release()
+        self.scanner_thread.join()
+        for _ in range(self.num_procs):
+            self.job_queue.put(None)
+        for thread in self.worker_threads:
+            thread.join()
         print('>>> All done!')
     
     def add_chunk_to_queue(self, cam, chunk):
@@ -162,16 +178,6 @@ class Mp4Compressor:
         self.job_queue.put((cam, args))
 
     def add_new_files_to_pending_sets(self):
-        # # What's the latest available image for each camera?
-        # latest_frame_per_cam = {}
-        # for cam in range(self.num_cams):
-        #     if not self.pending_frames[cam]:
-        #         latest_frame_per_cam[cam] = -1
-        #     else:
-        #         last_file = self.pending_frames[cam][-1].name
-        #         frame = last_file.replace('.jpg', '').split('_')[-1]
-        #         latest_frame_per_cam[cam] = int(frame)
-
         # Parse glob result, group by cam
         files_by_cam = {cam: [] for cam in range(self.num_cams)}
         for img_file in (self.data_dir / 'images').glob('*.jpg'):
