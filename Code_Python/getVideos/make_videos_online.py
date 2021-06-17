@@ -5,7 +5,9 @@ from pathlib import Path
 from threading import Lock, Thread
 from tempfile import mkstemp
 from subprocess import run
-import threading
+from datetime import datetime
+from json import dumps
+
 
 def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
     """Run MP4 compression by calling FFmpeg.
@@ -104,10 +106,46 @@ def _scan_files(cmpr):
         sleep(cmpr.refresh_interval_secs)
 
 
+def _log_status(cmpr):
+    while True:
+        cmpr.status_lock.acquire()
+        all_done = cmpr.all_done
+        cmpr.status_lock.release()
+        if all_done:
+            with open(cmpr.log_path, 'a+') as f:
+                f.write('ALL DONE\n')
+            break
+        
+        curr_time = time()
+
+        # get all stats
+        cmpr.status_lock.acquire()
+        status = {
+            'timestamp': str(datetime.now()),
+            'refresh_interval': cmpr.refresh_interval_secs,
+            'num_cams': cmpr.num_cams,
+            'fps': cmpr.fps,
+            'nprocs': cmpr.num_procs,
+            'nprocs_running': cmpr.busy_workers,
+            'qsize': cmpr.job_queue.qsize(),
+            'last_job_walltime': cmpr.last_job_walltime,
+            'nvids_made': sum(cmpr.parts_done.values()),
+            'frames_pending': [len(cmpr.pending_frames[cam])
+                               for cam in range(cmpr.num_cams)]
+        }
+        cmpr.status_lock.release()
+
+        # write to file
+        with open(cmpr.log_path, 'a+') as f:
+            f.write(dumps(status) + '\n')
+
+        sleep(curr_time + cmpr.log_interval_secs - time())
+
+
 class Mp4Compressor:
-    def __init__(self, fps, data_dir, num_cams, delete_images=True,
-                 pix_fmt='yuv420p', video_length_secs=300,
-                 refresh_interval_secs=1, num_procs=4):
+    def __init__(self, fps, data_dir, num_cams, log_path,
+                 delete_images=True, pix_fmt='yuv420p', video_length_secs=300,
+                 refresh_interval_secs=1, num_procs=4, log_interval_secs=1):
         # Initialize static properties
         self.fps = fps
         self.data_dir = data_dir
@@ -117,6 +155,8 @@ class Mp4Compressor:
         self.refresh_interval_secs = refresh_interval_secs
         self.frames_per_video = int(fps * video_length_secs)
         self.num_procs = num_procs
+        self.log_path = log_path
+        self.log_interval_secs = log_interval_secs
 
         # Initialize dynamic data structures and variables
         self.pending_frames = {cam: [] for cam in range(num_cams)}
@@ -133,16 +173,19 @@ class Mp4Compressor:
         self.log_lock = Lock()
         self.scan_lock = Lock()
         self.worker_threads = [
-            Thread(daemon=True, target=_thread_worker, args=(i, self))
+            Thread(target=_thread_worker, args=(i, self), daemon=True)
             for i in range(num_procs)
         ]
         self.scanner_thread = Thread(target=_scan_files, args=(self,),
                                      daemon=True)
+        self.logger_thread = Thread(target=_log_status, args=(self,),
+                                    daemon=True)
     
     def start(self):
         for thread in self.worker_threads:
             thread.start()
         self.scanner_thread.start()
+        self.logger_thread.start()
 
     def stop(self):
         # ASSUME any delay in IO (eg camera grab/save) would be within 1s
@@ -167,6 +210,7 @@ class Mp4Compressor:
             self.job_queue.put(None)
         for thread in self.worker_threads:
             thread.join()
+        self.logger_thread.join()
         print('>>> All done!')
     
     def add_chunk_to_queue(self, cam, chunk):
@@ -219,9 +263,10 @@ if __name__ == '__main__':
         num_cams = int(num_cams)
 
         if cmd == 'START':
+            log_path = data_dir / 'compression_log.txt'
             cmpr = Mp4Compressor(
-                fps, data_dir, num_cams, num_procs=1,    # TEST
-                delete_images=False, video_length_secs=10    # TEST
+                fps, data_dir, num_cams, log_path,
+                num_procs=1, delete_images=False, video_length_secs=10  # TEST
             )
             cmpr.start()
             compressors[data_dir] = cmpr
