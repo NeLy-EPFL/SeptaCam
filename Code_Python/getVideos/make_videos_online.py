@@ -359,7 +359,7 @@ if __name__ == '__main__':
             log_path = data_dir / 'compression_log.txt'
             compressors[str(data_dir)] = Mp4Compressor(
                 fps, data_dir, num_cams, log_path,
-                num_procs=7, delete_images=False, video_length_secs=10
+                num_procs=7, delete_images=True, video_length_secs=10
             )
             compressors[str(data_dir)].start()
             monitor_processes[str(data_dir)] = Process(
