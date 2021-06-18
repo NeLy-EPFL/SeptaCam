@@ -58,17 +58,17 @@ class CompressionMonitor(tk.Tk):
         )
         self.w_refresh_interval = tk.Label(
             self.w_rec_info,
-            text='Refresh interval:    NULL',
+            text='Refresh interval:    None',
             width=30,
             anchor=tk.W
         )
         self.w_ncams = tk.Label(
             self.w_rec_info,
-            text='Num cameras:    NULL'
+            text='Num cameras:    None'
         )
         self.w_fps = tk.Label(
             self.w_rec_info,
-            text='Frames per sec:    NULL'
+            text='Frames per sec:    None'
         )
         self.w_refresh_interval.pack(anchor=tk.NW)
         self.w_ncams.pack(anchor=tk.NW)
@@ -82,23 +82,23 @@ class CompressionMonitor(tk.Tk):
         )
         self.w_nprocs = tk.Label(
             self.w_queue_info,
-            text='Num processes:    NULL'
+            text='Num processes:    None'
         )
         self.w_nprocs_running = tk.Label(
             self.w_queue_info,
-            text='Num procs running:    NULL'
+            text='Num procs running:    None'
         )
         self.w_qsize = tk.Label(
             self.w_queue_info,
-            text='Num videos pending:    NULL'
+            text='Num videos pending:    None'
         )
         self.w_last_job_time = tk.Label(
             self.w_queue_info,
-            text='Last job walltime:    NULL'
+            text='Last job walltime:    None'
         )
         self.w_nvids_made = tk.Label(
             self.w_queue_info,
-            text='Num videos made:    NULL'
+            text='Num videos made:    None'
         )
         self.w_nprocs.pack(anchor=tk.NW)
         self.w_nprocs_running.pack(anchor=tk.NW)
@@ -114,7 +114,7 @@ class CompressionMonitor(tk.Tk):
         )
         self.wlist_nframes_pending = [tk.Label(
             self.w_pending_frames_info,
-            text=f'Frames pending #{i}:    NULL'
+            text=f'Frames pending #{i}:    None'
         ) for i in range(7)]
         for w in self.wlist_nframes_pending:
             w.pack(anchor=tk.NW)

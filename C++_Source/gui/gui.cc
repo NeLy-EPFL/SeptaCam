@@ -286,8 +286,6 @@ void check_recording_status()
         cameras_start();
         captureRunning = false;
         toggle_view_to_idle();
-        alert_error("Capture Completed");
-        increment_trial_number();
         if (make_mp4_in_background)
         {
             char *fifo_path_mp4 = "/tmp/mp4CompressorComm.fifo";
@@ -297,6 +295,8 @@ void check_recording_status()
             write(fd_mp4, strMp4.str().c_str(), strlen(strMp4.str().c_str()));
             close(fd_mp4);
         }
+        alert_error("Capture Completed");
+        increment_trial_number();
     }
     else
     {

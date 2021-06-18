@@ -34,15 +34,15 @@ def run_compression(in_paths, video_path, metadata_path, fps, delete_images,
     """
     # Build temporary file containing list of images
     # see https://trac.ffmpeg.org/wiki/Concatenate for specs
-    f, filelist_path = mkstemp(suffix='.txt', text=True, dir='temp')    # TEST
+    f, filelist_path = mkstemp(suffix='.txt', text=True)
     os.close(f)
-    print(f'  >>> mkstemp: {filelist_path}')    # TEST
+    print(f'  >>> running compression: {video_path.name}')
     lines = [f"file '{str(x.absolute())}'" for x in in_paths]
     with open(filelist_path, 'w') as f:
         f.write('\n'.join(lines))
 
     # Call FFmpeg
-    run(['ffmpeg', '-r', str(fps), '-loglevel', 'warning',
+    run(['ffmpeg', '-r', str(fps), '-loglevel', 'error',
          '-f', 'concat', '-safe', '0', '-i', str(filelist_path),
          '-pix_fmt', pix_fmt, str(video_path)], check=True)
     
@@ -55,7 +55,7 @@ def run_compression(in_paths, video_path, metadata_path, fps, delete_images,
     if delete_images:
         for img_file in in_paths:
             img_file.unlink()
-    # Path(filelist_path).unlink()
+    Path(filelist_path).unlink()
 
 def _guarded_print(lock, *args, **kwargs):
     lock.acquire()
@@ -285,7 +285,7 @@ if __name__ == '__main__':
             log_path = data_dir / 'compression_log.txt'
             compressors[str(data_dir)] = Mp4Compressor(
                 fps, data_dir, num_cams, log_path,
-                num_procs=1, delete_images=False, video_length_secs=10  # TEST
+                num_procs=7, delete_images=False, video_length_secs=10
             )
             compressors[str(data_dir)].start()
             monitor_processes[str(data_dir)] = Process(
