@@ -27,6 +27,16 @@ def _set_label_value(widget, new_val):
 
 
 class CompressionMonitor(tk.Tk):
+    """This is a GUI status monitor for the background MP4 video
+    compressor. It is a very simple Tkinter app that displayes the
+    last line of the log file, which is a JSON string written by
+    the actual compressor.
+
+    This monitor is intended to be initiated by the MP4 compressor
+    script in a separate process.
+
+    See ``Mp4Compressor`` docs for the specification of the log file.
+    """
     def __init__(self, log_path):
         super().__init__()
         self.log_path = log_path

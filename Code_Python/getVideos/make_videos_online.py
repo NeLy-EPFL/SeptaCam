@@ -63,6 +63,7 @@ def _guarded_print(lock, *args, **kwargs):
     lock.release()
 
 def _thread_worker(thread_id, cmpr):
+    """Entry point for the worker threads"""
     while True:
         task_spec = cmpr.job_queue.get()
         if task_spec is None:
@@ -91,6 +92,7 @@ def _thread_worker(thread_id, cmpr):
         cmpr.job_queue.task_done()
 
 def _scan_files(cmpr):
+    """Entry point for the scanner thread"""
     while True:
         cmpr.status_lock.acquire()
         all_done = cmpr.all_done
@@ -113,6 +115,7 @@ def _scan_files(cmpr):
 
 
 def _log_status(cmpr):
+    """Entry point for the logger thread"""
     while True:
         cmpr.status_lock.acquire()
         all_done = cmpr.all_done
@@ -149,6 +152,63 @@ def _log_status(cmpr):
 
 
 class Mp4Compressor:
+    """Manager of the background MP4 compression of camera data. One
+    ``Mp4Compressor`` object should be associated with each recording.
+    The user specifies, among other misc information, the intended
+    length of each video part. This manager, in turn, binds the JPEGs
+    into an MP4 every time a sufficient number of frames is available.
+    The videos can be generated in parallel, allowing the user to
+    generate videos using multiple CPU cores when recording with many
+    cameras at high frame rates. Each compressor also spawns a simple
+    GUI monior.
+
+    Example
+    -------
+    The external API of the compressor consists of the ``.start()``
+    and ``.stop()`` methods.
+    >>> compressor = Mp4Compressor(...)
+    >>> compressor.start()    # this returns immediately
+    >>> sleep(100)            # compression runs in background
+    >>> compressor.stop()     # this blocks briefly
+    
+    Implementation
+    --------------
+    There are two key data structures in this class: ``pending_frames``
+    and ``job_queue``. The "lifecycle" of data is as follows:
+    - Calculate the intended number of frames per video part `N`
+      (from the intended video part length and the FPS).
+    - Once the monitor that a camera has written a frame to the file
+      system, the frame is initially registered at ``pending_frames``.
+    - The frame stays there until there are `N` frames from the camera
+      in question in ``pending_frames``.
+    - The earliest `N` frames are then removed from ``pending_frames``.
+      A compression task (containing the list of input frames, output
+      video path, etc) is specified for this batch of frames. The job
+      spec is added to ``job_queue``.
+    - Worker threads monitor the ``job_queue``, and execute the
+      compression jobs that are in the queue.
+    
+    Each ``Mp4Compressor`` object manages M + 2 threads and up to M + 1
+    processes (`M` being ``num_procs``):
+    - Scanner thread (x1): Scans the file system periodically and add
+      newly arrived frames to ``pending_frames``. If ``pending_frames``
+      is long enough, make job specs and push the specs to
+      ``job_queue``. Note that since this thread doesn't do any actual
+      heavy-lifting, it should never block.
+    - Worker threads (xM): Run the compression jobs posted on
+      ``job_queue`` through systems calls to ``ffmpeg``, which are
+      managed by ``subprocess.run``.
+    - Logger thread (x1): Writes the current stats of the compressor
+      to a log file, which can then be read from the GUI.
+    - GUI process (x1): Displays the current status. It has to be a
+      sepearate process becasue Tk doesn't support multithreading.
+    - FFmpeg processes (x up to M): Spawned by worker threads.
+
+    The log is a text file where each line is either:
+    - a JSON string containing the status of the compressor (including
+      a timestamp), OR
+    - the literal string ``"ALL DONE"``, signaling termination.
+    """
     def __init__(self, fps, data_dir, num_cams, log_path,
                  delete_images=True, pix_fmt='yuv420p', video_length_secs=300,
                  refresh_interval_secs=1, num_procs=4, log_interval_secs=1):
@@ -256,6 +316,20 @@ def init_monitor_gui(log_path):
 
 
 if __name__ == '__main__':
+    """The intent to create/destroy ``Mp4Compressor`` objects is
+    communicated through a named pipe (via a FIFO file) from the C++
+    recording GUI. Each request takes one line (ends with \\n). The
+    protocol is as follows:
+    - ``"START,<data_dir>,<fps>,<num_cams>"``
+      This literal string (where the base data directory, FPS, number
+      of cameras are substituted accordingly) signals the initiation
+      of a compressor.
+    - ``"STOP,<data_dir>"``
+      This signals the termination of a compressor.
+    - ``"EXIT"``
+      This signals the termination of the program.
+    """
+
     FIFO_PATH = '/tmp/mp4CompressorComm.fifo'
     if os.path.exists(FIFO_PATH):
         os.unlink(FIFO_PATH)
