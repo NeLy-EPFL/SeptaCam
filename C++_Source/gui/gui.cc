@@ -26,6 +26,7 @@ static int thImage = true;
 static int opFlow = true;
 static int behCams = true;
 static int stimulus = false;
+static int make_mp4_in_background = false;
 static int mostRecent = true;
 static int selectExp = false;
 std::string trialStr = "001";
@@ -36,8 +37,10 @@ int captStream[7] = {false, false, false, false, false, false, false};
 int videofrom[8] = {false, false, false, false, false, false, false, true};
 int streamCam = 6;
 std::string imgDirectory;
+std::string baseDir;
 std::ostringstream sequence, stimTime;
 recstat_t recording_status;
+
 
 static unsigned int numCameras;
 int obs_scale = 1;
@@ -285,9 +288,19 @@ void check_recording_status()
         toggle_view_to_idle();
         alert_error("Capture Completed");
         increment_trial_number();
+        if (make_mp4_in_background)
+        {
+            char *fifo_path_mp4 = "/tmp/mp4CompressorComm.fifo";
+            std::ostringstream strMp4;
+            strMp4 << "STOP," << baseDir << "\n";
+            int fd_mp4 = open(fifo_path_mp4, O_WRONLY | O_APPEND);
+            write(fd_mp4, strMp4.str().c_str(), strlen(strMp4.str().c_str()));
+            close(fd_mp4);
+        }
     }
     else
     {
+        // Update progress indicator
         progress_t progress = get_recording_progress(recording_status);
         float fps = progress.fps;
         int num_frames_recorded = progress.num_frames_recorded;
@@ -302,16 +315,18 @@ void check_recording_status()
                     << percent_done << "% done)";
             ".progress_label" << configure() -text(status_str.str());
         }
+
         after(REFRESH_INTERVAL_MILLISEC, check_recording_status);
     }
 }
 
 void start_capture()
 {
-    int fd, fd_stim;
+    int fd, fd_stim, fd_mp4;
     std::string dirCreated;
     char *fifo_path = "/tmp/guiData.fifo";
     char *fifo_path_stim = "/tmp/stimData.fifo";
+    char *fifo_path_mp4 = "/tmp/mp4CompressorComm.fifo";
 
     captureRunning = true;
 
@@ -347,6 +362,7 @@ void start_capture()
                                        typeImg, trial, true);
     }
     dirCreated = creatingDirectory(OUTPUT_DIR, experimenter, genotype, flyNum, typeImg, trial);
+    baseDir = dirCreated;
 
     if (captureRunning == false)
     {
@@ -411,6 +427,21 @@ void start_capture()
         );
         toggle_view_to_recording();
         after(REFRESH_INTERVAL_MILLISEC, check_recording_status);
+
+        // Communicate with MP4 background compressor
+        if (make_mp4_in_background)
+        {
+            int num_cams = 0;
+            for (int i = 0; i < 7; i ++) 
+            {
+                num_cams += saveCams[i];
+            }
+            std::ostringstream strMp4;
+            strMp4 << "START," << baseDir << "," << fps << "," << num_cams << "\n";
+            fd_mp4 = open(fifo_path_mp4, O_WRONLY | O_APPEND);
+            write(fd_mp4, strMp4.str().c_str(), strlen(strMp4.str().c_str()));
+            close(fd_mp4);
+        }
     }
     else
     {
@@ -1079,6 +1110,10 @@ void setup()
     grid(configure, ".label_seperate_images") - in(".capture") - column(0) - row(7);
     checkbutton(".check_seperate_images") - variable(seperate_images);
     grid(configure, ".check_seperate_images") - in(".capture") - column(1) - row(7);
+    label(".label_make_mp4_in_background") - text("\tMake MP4 chunks");
+    grid(configure, ".label_make_mp4_in_background") - in(".capture") - column(0) - row(8);
+    checkbutton(".check_make_mp4_in_background") - variable(make_mp4_in_background);
+    grid(configure, ".check_make_mp4_in_background") - in(".capture") - column(1) - row(8);
 
     label(".label_empty3") - text("        ");
     grid(configure, ".label_empty3") - in(".capture") - column(2) - row(1);

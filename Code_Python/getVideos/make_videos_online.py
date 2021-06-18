@@ -266,24 +266,29 @@ if __name__ == '__main__':
             continue
         print(f'>>> Got request: "{request}"')
 
-        # Parse request
-        cmd, fps, data_dir, num_cams = request.split(',')
-        fps = float(fps)
-        data_dir = Path(data_dir)
-        num_cams = int(num_cams)
+        cmd = request.split(',')[0]
 
         if cmd == 'START':
+            # Parse command
+            cmd, data_dir, fps, num_cams = request.split(',')
+            fps = float(fps)
+            data_dir = Path(data_dir)
+            num_cams = int(num_cams)
+
+            (data_dir / 'videos').mkdir(exist_ok=True)
             log_path = data_dir / 'compression_log.txt'
-            compressors[data_dir] = Mp4Compressor(
+            compressors[str(data_dir)] = Mp4Compressor(
                 fps, data_dir, num_cams, log_path,
                 num_procs=1, delete_images=False, video_length_secs=10  # TEST
             )
-            compressors[data_dir].start()
-            monitor_processes[data_dir] = Process(
+            compressors[str(data_dir)].start()
+            monitor_processes[str(data_dir)] = Process(
                 target=init_monitor_gui, args=(log_path,), daemon=True
             )
-            monitor_processes[data_dir].start()
+            monitor_processes[str(data_dir)].start()
         elif cmd == 'STOP':
+            # Parse command
+            cmd, data_dir = request.split(',')
             compressors[data_dir].stop()
             monitor_processes[data_dir].join()
         elif cmd == 'EXIT':

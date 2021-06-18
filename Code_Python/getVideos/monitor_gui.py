@@ -22,8 +22,8 @@ def _read_last_line(filename):
         return None
 
 def _set_label_value(widget, new_val):
-    heading = widget['text'].split('\t')[0]
-    widget['text'] = f'{heading}\t{new_val}'
+    heading = widget['text'].split('    ')[0]
+    widget['text'] = f'{heading}    {new_val}'
 
 
 class CompressionMonitor(tk.Tk):
@@ -58,17 +58,17 @@ class CompressionMonitor(tk.Tk):
         )
         self.w_refresh_interval = tk.Label(
             self.w_rec_info,
-            text='Refresh interval:\tNULL',
+            text='Refresh interval:    NULL',
             width=30,
             anchor=tk.W
         )
         self.w_ncams = tk.Label(
             self.w_rec_info,
-            text='Num cameras:\tNULL'
+            text='Num cameras:    NULL'
         )
         self.w_fps = tk.Label(
             self.w_rec_info,
-            text='Frames per sec:\tNULL'
+            text='Frames per sec:    NULL'
         )
         self.w_refresh_interval.pack(anchor=tk.NW)
         self.w_ncams.pack(anchor=tk.NW)
@@ -82,23 +82,23 @@ class CompressionMonitor(tk.Tk):
         )
         self.w_nprocs = tk.Label(
             self.w_queue_info,
-            text='Num processes:\tNULL'
+            text='Num processes:    NULL'
         )
         self.w_nprocs_running = tk.Label(
             self.w_queue_info,
-            text='Num procs running:\tNULL'
+            text='Num procs running:    NULL'
         )
         self.w_qsize = tk.Label(
             self.w_queue_info,
-            text='Num videos pending:\tNULL'
+            text='Num videos pending:    NULL'
         )
         self.w_last_job_time = tk.Label(
             self.w_queue_info,
-            text='Last job walltime:\tNULL'
+            text='Last job walltime:    NULL'
         )
         self.w_nvids_made = tk.Label(
             self.w_queue_info,
-            text='Num videos made:\tNULL'
+            text='Num videos made:    NULL'
         )
         self.w_nprocs.pack(anchor=tk.NW)
         self.w_nprocs_running.pack(anchor=tk.NW)
@@ -114,7 +114,7 @@ class CompressionMonitor(tk.Tk):
         )
         self.wlist_nframes_pending = [tk.Label(
             self.w_pending_frames_info,
-            text=f'Frames pending #{i}:\tNULL'
+            text=f'Frames pending #{i}:    NULL'
         ) for i in range(7)]
         for w in self.wlist_nframes_pending:
             w.pack(anchor=tk.NW)
@@ -136,8 +136,9 @@ class CompressionMonitor(tk.Tk):
         _set_label_value(self.w_last_job_time, last_job_walltime_str)
         _set_label_value(self.w_nvids_made, status["nvids_made"])
         
-        for cam, w in enumerate(self.wlist_nframes_pending):
-            _set_label_value(w, status['frames_pending'][cam])
+        for cam in range(status["num_cams"]):
+            _set_label_value(self.wlist_nframes_pending[cam],
+                             status['frames_pending'][cam])
 
 
 def _test():
