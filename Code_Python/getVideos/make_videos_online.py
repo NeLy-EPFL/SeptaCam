@@ -12,7 +12,8 @@ from json import dumps
 from monitor_gui import CompressionMonitor
 
 
-def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
+def run_compression(in_paths, video_path, metadata_path, fps, delete_images,
+                    pix_fmt):
     """Run MP4 compression by calling FFmpeg.
 
     Parameters
@@ -28,6 +29,8 @@ def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
         Frames per second to be written to the video file's metadata.
     delete_images : bool
         Whether or not source images should be deleted afterward.
+    pix_fmt : str
+        -pix_fmt flag used for the output file in the FFmpeg call.
     """
     # Build temporary file containing list of images
     # see https://trac.ffmpeg.org/wiki/Concatenate for specs
@@ -39,9 +42,9 @@ def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
         f.write('\n'.join(lines))
 
     # Call FFmpeg
-    # run(['ffmpeg', '-r', fps, '-pix_fmt', pix_fmt, '-loglevel', 'warning',
-    #      'concat', '-i', filelist_path, video_path], check=True) # TEST
-    sleep(1)    # TEST
+    run(['ffmpeg', '-r', str(fps), '-loglevel', 'warning',
+         '-f', 'concat', '-safe', '0', '-i', str(filelist_path),
+         '-pix_fmt', pix_fmt, str(video_path)], check=True)
     
     # Write matadata
     with open(metadata_path, 'w') as f:
@@ -52,7 +55,7 @@ def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
     if delete_images:
         for img_file in in_paths:
             img_file.unlink()
-    Path(filelist_path).unlink()
+    # Path(filelist_path).unlink()
 
 def _guarded_print(lock, *args, **kwargs):
     lock.acquire()
@@ -154,6 +157,7 @@ class Mp4Compressor:
         self.data_dir = data_dir
         self.num_cams = num_cams
         self.delete_images = delete_images
+        self.pix_fmt = pix_fmt
         self.video_length_secs = video_length_secs
         self.refresh_interval_secs = refresh_interval_secs
         self.frames_per_video = int(fps * video_length_secs)
@@ -199,8 +203,9 @@ class Mp4Compressor:
         self.add_new_files_to_pending_sets()
         for cam in range(self.num_cams):
             chunk = self.pending_frames[cam]
-            self.pending_frames[cam] = []
-            self.add_chunk_to_queue(cam, chunk)
+            if chunk:
+                self.pending_frames[cam] = []
+                self.add_chunk_to_queue(cam, chunk)
         self.scan_lock.release()
 
         # Now we just wait for everything to finish. This is blocking.
@@ -221,7 +226,8 @@ class Mp4Compressor:
                       / f'camera_{cam}_part_{self.parts_enqueued[cam]}.mp4')
         self.parts_enqueued[cam] += 1
         metadata_path = Path(str(video_path).replace('.mp4', '.list'))
-        args = (chunk, video_path, metadata_path, self.fps, self.delete_images)
+        args = (chunk, video_path, metadata_path, self.fps,
+                self.delete_images, self.pix_fmt)
         self.job_queue.put((cam, args))
 
     def add_new_files_to_pending_sets(self):
