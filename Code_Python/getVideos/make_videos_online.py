@@ -2,11 +2,14 @@ import os
 from time import time, sleep
 from queue import Queue
 from pathlib import Path
+from multiprocessing import Process
 from threading import Lock, Thread
 from tempfile import mkstemp
 from subprocess import run
 from datetime import datetime
 from json import dumps
+
+from monitor_gui import CompressionMonitor
 
 
 def run_compression(in_paths, video_path, metadata_path, fps, delete_images):
@@ -240,6 +243,12 @@ class Mp4Compressor:
             self.pending_frames[cam] += [x[1] for x in new_files]
             self.latest_frame_per_cam[cam] = new_files[-1][0]
 
+
+def init_monitor_gui(log_path):
+    monitor = CompressionMonitor(log_path)
+    monitor.mainloop()
+
+
 if __name__ == '__main__':
     FIFO_PATH = '/tmp/mp4CompressorComm.fifo'
     if os.path.exists(FIFO_PATH):
@@ -248,6 +257,7 @@ if __name__ == '__main__':
         os.mkfifo(FIFO_PATH)
     
     compressors = {}
+    monitor_processes = {}
 
     fifo = open(FIFO_PATH, 'r')
     while True:
@@ -264,13 +274,19 @@ if __name__ == '__main__':
 
         if cmd == 'START':
             log_path = data_dir / 'compression_log.txt'
-            cmpr = Mp4Compressor(
+            compressors[data_dir] = Mp4Compressor(
                 fps, data_dir, num_cams, log_path,
                 num_procs=1, delete_images=False, video_length_secs=10  # TEST
             )
-            cmpr.start()
-            compressors[data_dir] = cmpr
+            compressors[data_dir].start()
+            monitor_processes[data_dir] = Process(
+                target=init_monitor_gui, args=(log_path,), daemon=True
+            )
+            monitor_processes[data_dir].start()
         elif cmd == 'STOP':
             compressors[data_dir].stop()
+            monitor_processes[data_dir].join()
+        elif cmd == 'EXIT':
+            break
         else:
             raise ValueError(f'Unrecognized command "{cmd}" from FIFO file')

@@ -4,6 +4,28 @@ from tkinter import messagebox
 from json import loads
 
 
+def _read_last_line(filename):
+    """Efficiently read the last line from a file
+    Modified from https://stackoverflow.com/a/54278929 (CC BY-SA 4.0)
+    24 hours of log at 1 line per sec takes ~1e-3 sec to read
+    """
+    if not os.path.exists(filename):
+        return None
+    try:
+        with open(filename, 'rb') as f:
+            f.seek(-2, os.SEEK_END)
+            while f.read(1) != b'\n':
+                f.seek(-2, os.SEEK_CUR)
+            last_line = f.readline().decode()
+        return last_line
+    except OSError:
+        return None
+
+def _set_label_value(widget, new_val):
+    heading = widget['text'].split('\t')[0]
+    widget['text'] = f'{heading}\t{new_val}'
+
+
 class CompressionMonitor(tk.Tk):
     def __init__(self, log_path):
         super().__init__()
@@ -12,7 +34,7 @@ class CompressionMonitor(tk.Tk):
         self._update_view_event()
     
     def _update_view_event(self):
-        last_log_line = read_last_line(self.log_path)
+        last_log_line = _read_last_line(self.log_path)
         if last_log_line is None:
             pass
         elif last_log_line.strip() == 'ALL DONE':
@@ -117,28 +139,12 @@ class CompressionMonitor(tk.Tk):
         for cam, w in enumerate(self.wlist_nframes_pending):
             _set_label_value(w, status['frames_pending'][cam])
 
-def read_last_line(filename):
-    """Efficiently read the last line from a file
-    Modified from https://stackoverflow.com/a/54278929 (CC BY-SA 4.0)
-    24 hours of log at 1 line per sec takes ~1e-3 sec to read
-    """
-    if not os.path.exists(filename):
-        return None
-    try:
-        with open(filename, 'rb') as f:
-            f.seek(-2, os.SEEK_END)
-            while f.read(1) != b'\n':
-                f.seek(-2, os.SEEK_CUR)
-            last_line = f.readline().decode()
-        return last_line
-    except OSError:
-        return None
 
-def _set_label_value(widget, new_val):
-    heading = widget['text'].split('\t')[0]
-    widget['text'] = f'{heading}\t{new_val}'
-
-if __name__ == '__main__':
+def _test():
     test_log_path = '/Volumes/LaCie/SampleData/201130_aDN2-CsChr/Fly0/005_beh/behData/compression_log.txt'
     app = CompressionMonitor(test_log_path)
     app.mainloop()
+
+
+if __name__ == '__main__':
+    test()
