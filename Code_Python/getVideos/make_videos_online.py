@@ -138,7 +138,7 @@ def _log_status(cmpr):
             'nprocs_running': cmpr.busy_workers,
             'qsize': cmpr.job_queue.qsize(),
             'last_job_walltime': cmpr.last_job_walltime,
-            'nvids_made': sum(cmpr.parts_done.values()),
+            'nvids_made': sum(cmpr.parts_done),
             'frames_pending': [len(cmpr.pending_frames[cam])
                                for cam in range(cmpr.num_cams)]
         }
@@ -156,7 +156,7 @@ class DanglingFrames:
         self.camera = camera
         self.data_dir = data_dir
         self.frame_ids = []
-        self.frame_ids_set = {}    # same as frame_ids, for easier search
+        self.frame_ids_set = set()    # same as frame_ids, for easier search
         self.discard_frames_before = 0
     
     def __len__(self):
@@ -165,7 +165,7 @@ class DanglingFrames:
     def scan(self):
         files = (self.data_dir / 'images').glob(f'camera_{self.camera}*.jpg')
         for img_path in files:
-            frame = int(img_file.name.replace('.jpg', '').split('_')[-1])
+            frame = int(img_path.name.replace('.jpg', '').split('_')[-1])
             if frame < self.discard_frames_before:
                 # arrived way too late, discard
                 continue
@@ -176,7 +176,11 @@ class DanglingFrames:
     def pop_chunk(self, chunk_size, block_time_secs=1):
         if chunk_size == -1:
             chunk_size = len(self)
-        if self.frame_ids[chunk_size] - self.frame_ids[0] > chunk_size:
+        if not chunk_size:
+            return []
+        if ((len(self) < chunk_size) or
+                (self.frame_ids[chunk_size - 1] - self.frame_ids[0]
+                     >= chunk_size)):
             # there are frames that haven't arrived yet, wait a bit
             sleep(block_time_secs)
             self.scan()
