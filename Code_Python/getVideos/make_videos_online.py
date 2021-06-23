@@ -8,6 +8,7 @@ from tempfile import mkstemp
 from subprocess import run
 from datetime import datetime
 from json import dumps
+from bisect import insort
 
 from monitor_gui import CompressionMonitor
 
@@ -106,9 +107,8 @@ def _scan_files(cmpr):
         # Move pending frames
         for cam in range(cmpr.num_cams):
             while len(cmpr.pending_frames[cam]) >= cmpr.frames_per_video:
-                chunk = cmpr.pending_frames[cam][:cmpr.frames_per_video]
-                cmpr.pending_frames[cam] = \
-                    cmpr.pending_frames[cam][cmpr.frames_per_video:]
+                chunk = cmpr.pending_frames[cam].pop_chunk(
+                    cmpr.frames_per_video)
                 cmpr.add_chunk_to_queue(cam, chunk)
         cmpr.scan_lock.release()
         sleep(cmpr.refresh_interval_secs)
@@ -149,6 +149,43 @@ def _log_status(cmpr):
             f.write(dumps(status) + '\n')
 
         sleep(curr_time + cmpr.log_interval_secs - time())
+
+
+class DanglingFrames:
+    def __init__(self, camera, data_dir):
+        self.camera = camera
+        self.data_dir = data_dir
+        self.frame_ids = []
+        self.frame_ids_set = {}    # same as frame_ids, for easier search
+        self.discard_frames_before = 0
+    
+    def __len__(self):
+        return len(self.frame_ids_set)
+
+    def scan(self):
+        files = (self.data_dir / 'images').glob(f'camera_{self.camera}*.jpg')
+        for img_path in files:
+            frame = int(img_file.name.replace('.jpg', '').split('_')[-1])
+            if frame < self.discard_frames_before:
+                # arrived way too late, discard
+                continue
+            if frame not in self.frame_ids_set:
+                insort(self.frame_ids, frame)
+                self.frame_ids_set.add(frame)
+
+    def pop_chunk(self, chunk_size, block_time_secs=1):
+        if chunk_size == -1:
+            chunk_size = len(self)
+        if self.frame_ids[chunk_size] - self.frame_ids[0] > chunk_size:
+            # there are frames that haven't arrived yet, wait a bit
+            sleep(block_time_secs)
+            self.scan()
+        chunk_ids = self.frame_ids[:chunk_size]
+        self.frame_ids = self.frame_ids[chunk_size:]
+        self.frame_ids_set -= set(chunk_ids)
+        self.discard_frames_before = chunk_ids[-1] + 1
+        return [self.data_dir / f'images/camera_{self.camera}_img_{x}.jpg'
+                for x in chunk_ids]
 
 
 class Mp4Compressor:
@@ -226,11 +263,12 @@ class Mp4Compressor:
         self.log_interval_secs = log_interval_secs
 
         # Initialize dynamic data structures and variables
-        self.pending_frames = {cam: [] for cam in range(num_cams)}
+        self.pending_frames = [DanglingFrames(cam, data_dir)
+                               for cam in range(num_cams)]
         self.job_queue = Queue()
-        self.parts_done = {cam: 0 for cam in range(num_cams)}
-        self.parts_enqueued = {cam: 0 for cam in range(num_cams)}
-        self.latest_frame_per_cam = {cam: -1 for cam in range(num_cams)}
+        self.parts_done = [0] * num_cams
+        self.parts_enqueued = [0] * num_cams
+        self.latest_frame_per_cam = [-1] * num_cams
         self.busy_workers = 0
         self.last_job_walltime = None
         self.all_done = False
@@ -262,9 +300,8 @@ class Mp4Compressor:
         self.scan_lock.acquire()
         self.add_new_files_to_pending_sets()
         for cam in range(self.num_cams):
-            chunk = self.pending_frames[cam]
+            chunk = self.pending_frames[cam].pop_chunk(-1)
             if chunk:
-                self.pending_frames[cam] = []
                 self.add_chunk_to_queue(cam, chunk)
         self.scan_lock.release()
 
@@ -291,23 +328,8 @@ class Mp4Compressor:
         self.job_queue.put((cam, args))
 
     def add_new_files_to_pending_sets(self):
-        # Parse glob result, group by cam
-        files_by_cam = {cam: [] for cam in range(self.num_cams)}
-        for img_file in (self.data_dir / 'images').glob('*.jpg'):
-            info = img_file.name.replace('.jpg', '').split('_')
-            _, cam, _, frame = info
-            cam = int(cam)
-            frame = int(frame)
-            if frame > self.latest_frame_per_cam[cam]:
-                files_by_cam[cam].append((frame, img_file))
-
-        # Register newly added files in order
-        for cam in range(self.num_cams):
-            if not files_by_cam[cam]:
-                continue
-            new_files = sorted(files_by_cam[cam], key=lambda x: x[0])
-            self.pending_frames[cam] += [x[1] for x in new_files]
-            self.latest_frame_per_cam[cam] = new_files[-1][0]
+        for frames in self.pending_frames:
+            frames.scan()
 
 
 def init_monitor_gui(log_path):
