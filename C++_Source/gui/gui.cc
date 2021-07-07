@@ -45,6 +45,7 @@ recstat_t recording_status;
 static unsigned int numCameras;
 int obs_scale = 1;
 int rec_scale = 1;
+int mp4_scale = 2;
 
 void alert_error(std::string msg)
 {
@@ -436,8 +437,12 @@ void start_capture()
             {
                 num_cams += saveCams[i];
             }
+            std::string str_chunk_length(".entry_chunk_length" << get());
+            int chunk_length_sec = (int)convertTime(std::stof(str_chunk_length), mp4_scale);
             std::ostringstream strMp4;
-            strMp4 << "START," << baseDir << "," << fps << "," << num_cams << "\n";
+            strMp4 << "START," << baseDir << "," << fps << "," << num_cams
+                   << "," << chunk_length_sec << "\n";
+            // std::cout << "BG compression instruction: " << strMp4.str().c_str() << std::endl;
             fd_mp4 = open(fifo_path_mp4, O_WRONLY | O_APPEND);
             write(fd_mp4, strMp4.str().c_str(), strlen(strMp4.str().c_str()));
             close(fd_mp4);
@@ -572,6 +577,23 @@ void toggle_motion_activation()
     else
     {
         ".entry_time_rec" << configure() - state("disabled");
+    }
+}
+
+void toggle_make_mp4_chunks()
+{
+    if (captureRunning)
+    {
+        alert_error("captureRunning");
+        return;
+    }
+    if (make_mp4_in_background)
+    {
+        ".entry_chunk_length" << configure() - state("normal");
+    }
+    else
+    {
+        ".entry_chunk_length" << configure() - state("disabled");
     }
 }
 
@@ -1112,7 +1134,8 @@ void setup()
     grid(configure, ".check_seperate_images") - in(".capture") - column(1) - row(7);
     label(".label_make_mp4_in_background") - text("\tMake MP4 chunks");
     grid(configure, ".label_make_mp4_in_background") - in(".capture") - column(0) - row(8);
-    checkbutton(".check_make_mp4_in_background") - variable(make_mp4_in_background);
+    checkbutton(".check_make_mp4_in_background") - variable(make_mp4_in_background)
+                                                 - command(toggle_make_mp4_chunks);
     grid(configure, ".check_make_mp4_in_background") - in(".capture") - column(1) - row(8);
 
     label(".label_empty3") - text("        ");
@@ -1171,6 +1194,17 @@ void setup()
     grid(configure, ".label_FPS") - in(".experiment") - column(0) - row(3);
     entry(".entry_FPS") - width(8);
     grid(configure, ".entry_FPS") - in(".experiment") - column(1) - row(3);
+
+    label(".label_chunk_length") - text("Video Chunk Length");
+    grid(configure, ".label_chunk_length") - in(".experiment") - column(0) - row(4);
+    entry(".entry_chunk_length") - state("disabled") - width(8);
+    grid(configure, ".entry_chunk_length") - in(".experiment") - column(1) - row(4);
+    radiobutton(".radio_sec_mp4") - text("sec") - variable(mp4_scale) - value(1);
+    grid(configure, ".radio_sec_mp4") - in(".experiment") - column(2) - row(4);
+    radiobutton(".radio_min_mp4") - text("min") - variable(mp4_scale) - value(2);
+    grid(configure, ".radio_min_mp4") - in(".experiment") - column(3) - row(4);
+    radiobutton(".radio_hrs_mp4") - text("hrs") - variable(mp4_scale) - value(3);
+    grid(configure, ".radio_hrs_mp4") - in(".experiment") - column(4) - row(4);
 
     pack(".experiment");
 
