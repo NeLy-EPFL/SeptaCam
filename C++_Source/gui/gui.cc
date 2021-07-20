@@ -71,7 +71,7 @@ float convertTime(float t, int param)
    return secTime;
 }
 
-std::string creatingDirectory(std::string experimenter,std::string genotype,std::string flyNum,std::string typeImg,std::string trial)
+std::string creatingDirectory(std::string output_dir,std::string experimenter,std::string genotype,std::string flyNum,std::string typeImg,std::string trial, bool two_photon_dir=false)
 {
    time_t raw_time;
    struct tm * time_info;
@@ -86,7 +86,7 @@ std::string creatingDirectory(std::string experimenter,std::string genotype,std:
    struct stat sb;
 
    std::string newPath;
-   newPath.insert(0,OUTPUT_DIR);
+   newPath.insert(0,output_dir);
    newPath.insert(newPath.length(),experimenter);
    newPath.insert(newPath.length(),"/");
        
@@ -180,23 +180,48 @@ std::string creatingDirectory(std::string experimenter,std::string genotype,std:
       }
    }*/        
 
-   newPath.insert(newPath.length(),"behData");
-
-   if (!(stat(newPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)))
+   if (two_photon_dir)
    {
-        std::cout << "Creating "<<newPath.c_str() << std::endl;
-        const int dir_err3 = mkdir(newPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        if (dir_err3 == -1)
-        {
-           std::cout << "Failure Creating BehCams Directory: "<< std::endl;
-	}
-          
+      newPath.insert(newPath.length(),"2p");
+
+      if (!(stat(newPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)))
+      {
+           std::cout << "Creating "<<newPath.c_str() << std::endl;
+           const int dir_err3 = mkdir(newPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+           if (dir_err3 == -1)
+           {
+              std::cout << "Failure Creating BehCams Directory: "<< std::endl;
+           }
+             
+      }
+      else
+      {
+           alert_error("BehCams Directory already exists");
+           captureRunning = false;
+           return "";
+      }
+
    }
    else
    {
-        alert_error("BehCams Directory already exists");
-        captureRunning = false;
-        return "";
+      newPath.insert(newPath.length(),"behData");
+
+      if (!(stat(newPath.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)))
+      {
+           std::cout << "Creating "<<newPath.c_str() << std::endl;
+           const int dir_err3 = mkdir(newPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+           if (dir_err3 == -1)
+           {
+              std::cout << "Failure Creating BehCams Directory: "<< std::endl;
+           }
+             
+      }
+      else
+      {
+           alert_error("BehCams Directory already exists");
+           captureRunning = false;
+           return "";
+      }
    }        
 
    return newPath;
@@ -248,7 +273,11 @@ void start_capture()
     return; 
   }
 
-  dirCreated = creatingDirectory(experimenter,genotype,flyNum,typeImg,trial);
+  if (WINDOWS_SHARE)
+  {
+     dirCreated = creatingDirectory(WINDOWS_SHARE,experimenter,genotype,flyNum,typeImg,trial,true);
+  }
+  dirCreated = creatingDirectory(OUTPUT_DIR,experimenter,genotype,flyNum,typeImg,trial);
 
   if (captureRunning == false){
       return;
