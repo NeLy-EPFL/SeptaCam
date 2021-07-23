@@ -7,6 +7,10 @@ from mfc import MFC
 
 
 def check_serial_port():
+    """Attempt to automatically identify the serial port of the MFC
+    (eg. /dev/ttyUSB0).
+    Implementation based on https://unix.stackexchange.com/a/144735
+    """
     for usb_path in Path('/sys/bus/usb/devices/').glob('usb*'):
         for dev_path in usb_path.rglob('dev'):
             dev_name = subprocess.run(
@@ -24,6 +28,8 @@ def check_serial_port():
 
 
 class AirflowControl(tk.Tk):
+    """Minimal GUI for controlling air flow rate for ball suspension.
+    """
     def __init__(self):
         super().__init__()
         self.mfc = None
