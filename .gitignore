@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# complied files
+.obj/
+GUI_BASLER_m
