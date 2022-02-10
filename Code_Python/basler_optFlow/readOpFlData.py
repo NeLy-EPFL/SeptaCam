@@ -16,6 +16,7 @@ class OpticFlowSensor(serial.Serial):
 
     def sendData(self,dat):
         dataSended = dat+'*'
+        #dataSended = dataSended.encode()
         #print(dataSended)
         self.write(dataSended)
 
@@ -39,7 +40,7 @@ class OpticFlowSensor(serial.Serial):
                     list1 = [int(x) for x in rawData]
                     #list1.append(a)
                     #print(dataList)
-		    dataList.append(list1)
+                    dataList.append(list1)
                 except:
                     pass
         return dataList, stopFlag
@@ -67,6 +68,8 @@ if __name__ == '__main__':
 
         mode = dataReceived[0]
         frameRate = dataReceived[1]
+        #print(frameRate)
+        #frameRate = int(frameRate)
         totTime = dataReceived[2]
         dataDir = dataReceived[3] + '/OptFlowData/OptFlow.txt'
         
@@ -93,7 +96,7 @@ if __name__ == '__main__':
                 del(pathList[-1])
                 pathToCreate = '/'+'/'.join(pathList)
                 if os.path.exists(pathToCreate)==False:
-	            os.makedirs(pathToCreate)
+                    os.makedirs(pathToCreate)
             #fileTest = open(dataDir,"w")
 
         #print(mode)
@@ -106,7 +109,7 @@ if __name__ == '__main__':
         time.sleep(0.5)
         sensor.sendData(totTime)
         time.sleep(0.5)
-        if(frameRate > 0):
+        if(int(frameRate) > 0):
             sensor.sendData(frameRate)
         print("Data sent to Arduino")
         stop = False

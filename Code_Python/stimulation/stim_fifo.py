@@ -90,15 +90,15 @@ if __name__ == '__main__':
                 del(pathList[-1])
                 pathToCreate = '/'+'/'.join(pathList)
                 if os.path.exists(pathToCreate)==False:
-	            os.makedirs(pathToCreate)
+                    os.makedirs(pathToCreate)
 
-	with open('/NIR_Imaging/Code_Python/stimulation/seqFile.txt', 'r') as f:
-	    fileLines = f.readlines()
-	for line in fileLines:
-	    if(len(line) > 1):
-	        lineReceived = line.split(',')
-	        controlSeq.append(lineReceived[0].strip())
-	        valuesSeq.append(lineReceived[1].strip())
+    with open('/NIR_Imaging/Code_Python/stimulation/seqFile.txt', 'r') as f:
+        fileLines = f.readlines()
+    for line in fileLines:
+        if(len(line) > 1):
+            lineReceived = line.split(',')
+            controlSeq.append(lineReceived[0].strip())
+            valuesSeq.append(lineReceived[1].strip())
 
         fileTest = open(dataDir,"w")
 
@@ -111,35 +111,35 @@ if __name__ == '__main__':
             
         fileTest.close()
 
-	try:
-	    loopIndex = controlSeq.index('*')
-	    numLoops = valuesSeq[loopIndex]
-	    del valuesSeq[loopIndex]
-	except ValueError:
-	    numLoops = 1
+    try:
+        loopIndex = controlSeq.index('*')
+        numLoops = valuesSeq[loopIndex]
+        del valuesSeq[loopIndex]
+    except ValueError:
+        numLoops = 1
 
-	if controlSeq[0]=='on':
-	    valuesSeq.insert(0,'0')
+    if controlSeq[0]=='on':
+        valuesSeq.insert(0,'0')
 
-	for i in range(0,(len(valuesSeq)-1)):
-	    dataStr += valuesSeq[i] + ','
+    for i in range(0,(len(valuesSeq)-1)):
+        dataStr += valuesSeq[i] + ','
 
-	dataStr +=  valuesSeq[len(valuesSeq)-1]
-	loopsStr = str(numLoops)
-	numValuesStr = str(len(valuesSeq))
+    dataStr +=  valuesSeq[len(valuesSeq)-1]
+    loopsStr = str(numLoops)
+    numValuesStr = str(len(valuesSeq))
 
-	print('Stimulus: Time sequence = ' + dataStr)
-	print('Stimulus: Number of loops = ' + loopsStr)
-	#print('Number of steps = ' + numValuesStr)
+    print('Stimulus: Time sequence = ' + dataStr)
+    print('Stimulus: Number of loops = ' + loopsStr)
+    #print('Number of steps = ' + numValuesStr)
 
-	ardStimulus = serialCom(port)
-	ardStimulus.sendData(loopsStr)
-	time.sleep(0.2)
-	ardStimulus.sendData(numValuesStr)
-	time.sleep(0.2)
-	ardStimulus.sendData(dataStr)
+    ardStimulus = serialCom(port)
+    ardStimulus.sendData(loopsStr)
+    time.sleep(0.2)
+    ardStimulus.sendData(numValuesStr)
+    time.sleep(0.2)
+    ardStimulus.sendData(dataStr)
 
-	ardStimulus.closePort()
+    ardStimulus.closePort()
 
     
 
