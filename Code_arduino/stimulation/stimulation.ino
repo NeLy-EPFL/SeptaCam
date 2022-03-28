@@ -2,6 +2,7 @@
 //------------------------------------------------------------------------------------
 
 const int trigStimulus = 12;
+const int trigStimulus2 = 4;
 const int LED = 44;
 const int extSigPin = 38;
 const int buttonPin =40;
@@ -60,6 +61,7 @@ void setup() {
 
   Serial.begin(115200);
   pinMode(trigStimulus,OUTPUT);
+  pinMode(trigStimulus2,OUTPUT);
   pinMode(LED,OUTPUT);
   pinMode(extSigPin,INPUT);
   pinMode(buttonPin, INPUT_PULLUP);
@@ -68,6 +70,7 @@ void setup() {
 void loop()
 {
     digitalWrite(trigStimulus,LOW);
+    digitalWrite(trigStimulus2,LOW);
     digitalWrite(LED,LOW);
     int startCapture = false;
     unsigned long startTime;
@@ -124,15 +127,31 @@ void loop()
       for(int j = 0; j < numStim; j++){
        startTime = millis();
        timeDiff = 0;
-       
-       if(j%2 == 0){
-          digitalWrite(trigStimulus,LOW);
-          digitalWrite(LED,LOW);
-       }
+
+       if(i%2==0){
+         if(j%2 == 0){
+            digitalWrite(trigStimulus,LOW);
+            digitalWrite(trigStimulus2,LOW);
+            digitalWrite(LED,LOW);
+         }
+         else{
+            digitalWrite(trigStimulus,HIGH);
+            digitalWrite(trigStimulus2,LOW);
+            digitalWrite(LED,HIGH);       
+         }      
+        }
        else{
-          digitalWrite(trigStimulus,HIGH);
-          digitalWrite(LED,HIGH);
-       }
+         if(j%2 == 0){
+            digitalWrite(trigStimulus,LOW);
+            digitalWrite(trigStimulus2,LOW);
+            digitalWrite(LED,LOW);
+         }
+         else{
+            digitalWrite(trigStimulus,LOW);
+            digitalWrite(trigStimulus2,HIGH);
+            digitalWrite(LED,HIGH);       
+         }      
+        }
         
        while(timeDiff < actSeq[j]){        
            timeDiff = millis() - startTime;
@@ -141,6 +160,7 @@ void loop()
       }
    }
    digitalWrite(trigStimulus,LOW);
+   digitalWrite(trigStimulus2,LOW);
    digitalWrite(LED,LOW);
    //Serial.println("*");
 }
@@ -160,4 +180,3 @@ void singleShot(){
         digitalWrite(LED,LOW);
    }
 }
-
