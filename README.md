@@ -8,9 +8,13 @@ $conda create -n septacam python=3.6 numpy
 $conda activate septacam
 ```
 
-- Install [pylon 5.0.12](https://www.baslerweb.com/en/sales-support/downloads/software-downloads/pylon-5-0-12-linux-x86-64-bit/)
+- Install [Pylon](https://www2.baslerweb.com/en/downloads/software-downloads/#type=pylonsoftware;os=linuxx8664bit):
+  - We've successfully used multiple versions including [5.0.12](https://www.baslerweb.com/en/sales-support/downloads/software-downloads/pylon-5-0-12-linux-x86-64-bit/) and [7.3.0](https://www2.baslerweb.com/en/downloads/software-downloads/software-pylon-7-3-0-linux-x86-64bit/), so probably you can just use the newest version and you'll be fine. If weird stuff happens, try 7.3.0 which is known to work.
+  - Note that there are two sets of installation instructions that you need to follow: the "basic" install instructions come in a text file named INSTALL that is directly in the `.tar.gz` file that you download from Basler. Then there are some more "advanced" configuration instructions in `/opt/pylon/share/pylon/README` (which is a file that gets unpacked from the `.tar.gz` file inside the `.tar.gz` file you downloaded from Basler) that you also want to go through -- specifically as of version 7.3.0, the sections `Performance Optimization > USB Vision Cameras` and `Permissions for Real-Time Thread Priorities` are important.
 
-- Install opencv
+- In the SeptaCam `Makefile`, set `PYLON_ROOT` to point to your pylon installation.
+
+- Build and install opencv:
 ```
 $sudo apt install build-essential cmake git pkg-config libgtk-3-dev \
     libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
