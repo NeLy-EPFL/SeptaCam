@@ -53,5 +53,22 @@ $sudo make install
 - Compile software
 ```$make GUI_BASLER_m```
 
-- Run GUI
+- Test that you can launch the GUI with no cameras plugged in
 ```$./GUI_BASLER_m```
+
+# Configuration
+### Set paths
+In `C++_Source/constants.h`:
+- Update `INSTALL_DIR`, `SEQ_FILE`, `VID_BATCH_FILE`, `MAKE_VIDEOS_FILE` to have the correct path to the SeptaCam software.
+- Update `OUTPUT_DIR` to have the path where you want to save your images.
+
+Afterward, run `make clean` and `make GUI_BASLER_m` to re-build.
+
+### Configure cameras
+Plug in your camera(s). Try launching the UI with `./GUI_BASLER_m`. You should get a message saying `X cameras detected` where X is how many cameras you plugged in, then a line that says `.../SeptaCam/Config/40012345.pfs`, then an error `Exception on connect()`. For the next steps you need this `40012345` number, which should be your camera's serial number -- you can double check that this number is printed on the camera.
+- In `Config/defaultROI.json`, add a section for your your camera(s).
+- In `Config/`, create a `.pfs` file for your camera(s).
+  - The easiest option is to just copy an existing `.pfs` file from another camera and rename it to have your camera(s)'s serial number.
+  - The "right" way is to use Pylon. To do this, open Pylon, connect to your camera, then in the top menu bar click on `Camera > Save Features...` and create a pfs file named `{serial number}.pfs` in the `Config/` folder.
+ 
+Now you should be able to run `./GUI_BASLER_m` and successfully connect to your cameras.
